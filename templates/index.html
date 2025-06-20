@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring Inventaris Produk Makanan</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        :root { 
+            --primary-color: #a200ff;
+            --secondary-color: #2196F3; 
+            --accent-color: #FFC107; 
+            --background-light: #fcfcfc; 
+            --card-bg: #fdf8ff;
+            --text-dark: #333;
+            --text-light: #FFF;
+            --low-stock-bg: #FFEBEE; 
+            --low-stock-border: #EF5350;
+            --critical-temp-bg: #E3F2FD;
+            --critical-temp-border: #2196F3;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--background-light);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .header {
+            background-color: var(--primary-color);
+            color: var(--text-light);
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            flex-wrap: wrap;
+        }
+        .header-left {
+            display: flex;
+            flex-direction: column; 
+            align-items: flex-start;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.2em;
+            font-weight: 600;
+        }
+        .header .logout-btn {
+            background-color: var(--secondary-color);
+            color: var(--text-light);
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        .header .logout-btn:hover {
+            background-color: #1976D2;
+        }
+        .main-content {
+            flex-grow: 1;
+            padding: 20px 40px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        .card.low-stock {
+            border: 2px solid var(--low-stock-border);
+            background-color: var(--low-stock-bg);
+        }
+        .card.critical-temp {
+            border: 2px solid var(--critical-temp-border);
+            background-color: var(--critical-temp-bg);
+        }
+        .card h2 {
+            color: var(--primary-color);
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 1.6em;
+            font-weight: 600;
+        }
+        .card p {
+            margin: 8px 0;
+            font-size: 1.1em;
+        }
+        .card p strong {
+            color: var(--secondary-color);
+            font-weight: 400;
+        }
+        .notification {
+            font-weight: 600;
+            color: var(--accent-color);
+            background-color: #FFFDE7;
+            padding: 8px 12px;
+            border-radius: 5px;
+            margin-top: 15px;
+            text-align: center;
+            animation: pulse 1.5s infinite;
+        }
+        .notification.low { color: #D32F2F; background-color: #FFEBEE;} 
+        .notification.temp { color: #1976D2; background-color: #E3F2FD;}
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+        .chart-container {
+            flex-grow: 1; 
+            min-height: 250px; 
+            margin-top: 15px;
+        }
+        .footer {
+            background-color: var(--text-dark);
+            color: var(--text-light);
+            text-align: center;
+            padding: 15px 0;
+            margin-top: 20px;
+            font-size: 0.9em;
+        }
+        .status-header {
+            text-align: center;
+            margin-bottom: 25px;
+            font-size: 1.1em;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Dashboard Inventaris Smart Retail</h1>
+        <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+    </div>
+
+    <div class="main-content">
+        <p class="status-header">Update terakhir: <span id="last-update">Menunggu data...</span></p>
+
+        <div id="product-cards-container" style="display: contents;">
+            </div>
+
+    </div>
+
+    <div class="footer">
+        &copy; 2025 Dashboard Smart Retail. Dibuat dengan Python Flask.
+    </div>
+
+    <script>
+        const historicalData = {};
+        const chartInstances = {}; 
+
+        async function updateDashboard() {
+            try {
+                const response = await fetch('/data'); 
+                const productsData = await response.json(); 
+
+                const container = document.getElementById('product-cards-container');
+                container.innerHTML = '';
+
+                document.getElementById('last-update').textContent = productsData.waktu_sekarang;
+
+                if (Object.keys(productsData.data_produk).length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: #777; width: 100%;">Menunggu data dari sensor...</p>';
+                    return;
+                }
+
+                for (const productId in productsData.data_produk) {
+                    const data = productsData.data_produk[productId];
+                    let cardClasses = 'card';
+                    let notificationsHtml = '';
+
+                    if (data.perlu_restock) {
+                        cardClasses += ' low-stock';
+                        notificationsHtml += '<div class="notification low">STOK RENDAH!</div>';
+                    }
+                    if (data.notifikasi_suhu_tidak_ideal) {
+                        cardClasses += ' critical-temp';
+                        notificationsHtml += '<div class="notification temp">SUHU KRITIS!</div>';
+                    }
+
+                    if (!historicalData[productId]) {
+                        historicalData[productId] = {
+                            timestamps: [],
+                            stock: [],
+                            temperature: []
+                        };
+                    }
+                    const maxHistory = 30; 
+                    historicalData[productId].timestamps.push(new Date(data.waktu_data).toLocaleTimeString());
+                    historicalData[productId].stock.push(data.jumlah_stok);
+                    historicalData[productId].temperature.push(data.suhu_rak_c);
+
+                    if (historicalData[productId].timestamps.length > maxHistory) {
+                        historicalData[productId].timestamps.shift();
+                        historicalData[productId].stock.shift();
+                        historicalData[productId].temperature.shift();
+                    }
+
+                    const cardHtml = `
+                        <div class="${cardClasses}">
+                            <h2>${data.id_produk}</h2>
+                            <p><strong>Stok Saat Ini:</strong> ${data.jumlah_stok}</p>
+                            <p><strong>Batas Min. Stok:</strong> ${data.batas_minimum_stok}</p>
+                            <p><strong>Suhu Rak:</strong> ${data.suhu_rak_c} °C</p>
+                            <p><strong>Kelembaban Rak:</strong> ${data.kelembaban_rak_persen} %</p>
+                            ${notificationsHtml}
+                            <div class="chart-container">
+                                <canvas id="chart-${productId}"></canvas>
+                            </div>
+                        </div>
+                    `;
+                    container.insertAdjacentHTML('beforeend', cardHtml);
+
+                    const ctxStock = document.getElementById(`chart-${productId}`);
+                    if (chartInstances[productId]) {
+                        chartInstances[productId].destroy(); 
+                    }
+
+                    chartInstances[productId] = new Chart(ctxStock, {
+                        type: 'line',
+                        data: {
+                            labels: historicalData[productId].timestamps, 
+                            datasets: [{
+                                label: 'Stok',
+                                data: historicalData[productId].stock,
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                fill: true,
+                                tension: 0.3
+                            },
+                            {
+                                label: 'Suhu (°C)',
+                                data: historicalData[productId].temperature,
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                fill: true,
+                                tension: 0.3,
+                                yAxisID: 'y1'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Stok'
+                                    }
+                                },
+                                y1: {
+                                    position: 'right',
+                                    grid: {
+                                        drawOnChartArea: false 
+                                    },
+                                    title: {
+                                        display: true,
+                                        text: 'Suhu (°C)'
+                                    }
+                                }
+                            },
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: `Tren Stok & Suhu ${productId}`
+                                }
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error("Gagal mengambil data dashboard:", error);
+                document.getElementById('product-cards-container').innerHTML = '<p style="text-align: center; color: red; width: 100%;">Terjadi kesalahan saat memuat data. Cek konsol browser.</p>';
+            }
+        }
+
+        setInterval(updateDashboard, 5000); 
+        updateDashboard();
+    </script>
+</body>
+</html>
