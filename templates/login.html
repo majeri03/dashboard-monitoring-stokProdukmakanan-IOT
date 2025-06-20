@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login Dashboard</title>
+    <title>Login Halaman Monitor</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #e0f2f7; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; } /* Warna background lebih terang */
         .login-container { background: #ffffff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 350px; text-align: center; border: 1px solid #cceeff; } /* Shadow dan border lebih jelas */
-        h2 { color: #007bff; margin-bottom: 25px; font-size: 2em; } /* Warna judul lebih cerah */
+        h2 { color: #007bff; margin-bottom: 25px; font-size: 2em; } 
         .form-group { margin-bottom: 20px; text-align: left; }
         label { display: block; margin-bottom: 8px; color: #333; font-weight: bold; }
         input[type="text"], input[type="password"] { 
@@ -21,13 +21,13 @@
         }
         button:hover { background-color: #0056b3; transform: translateY(-2px); }
         .flash-message { padding: 12px; margin-bottom: 15px; border-radius: 6px; font-size: 0.95em; }
-        .flash-message.error { background-color: #ffe0e6; color: #d32f2f; border: 1px solid #ffbbcc; } /* Warna error lebih terang */
-        .flash-message.success { background-color: #e8f5e9; color: #388e3c; border: 1px solid #c8e6c9; } /* Warna success lebih terang */
+        .flash-message.error { background-color: #ffe0e6; color: #d32f2f; border: 1px solid #ffbbcc; }
+        .flash-message.success { background-color: #e8f5e9; color: #388e3c; border: 1px solid #c8e6c9; } 
     </style>
 </head>
 <body>
     <div class="login-container">
-        <h2>Login ke Dashboard</h2>
+        <h2>Login ke Monitor</h2>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
