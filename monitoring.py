@@ -24,8 +24,8 @@ data_lock = threading.Lock()
 app = Flask(__name__)
 app.secret_key = os.urandom(24) 
 
-monitor_USER = "admin"
-monitor_PASS = "admin123"
+monitor_USER = "jery"
+monitor_PASS = "jery123"
 
 def saat_terhubung(klien, data_pengguna, bendera, kode_hasil):
     if kode_hasil == 0:

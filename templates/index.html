@@ -9,8 +9,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <style>
         :root { 
-            --primary-color: #a200ff;
-            --secondary-color: #2196F3; 
+            --primary-color: #5459AC;
+            --secondary-color: #8DD8FF; 
             --accent-color: #FFC107; 
             --background-light: #f4f7fc;
             --card-bg: #ffffff;
@@ -19,7 +19,7 @@
             --low-stock-bg: #FFEBEE; 
             --low-stock-border: #EF5350;
             --critical-temp-bg: #E3F2FD;
-            --critical-temp-border: #2196F3;
+            --critical-temp-border: #27548A;
             --navbar-bg: #fdf8ff;
             --navbar-width: 400px;
             --notification-color: #f44336;
@@ -394,8 +394,8 @@
             cardElement.classList.toggle('critical-temp', data.notifikasi_suhu_tidak_ideal);
             cardElement.classList.toggle('low-stock', data.perlu_restock);
 
-            createOrUpdateGauge(`gauge-temp-${productId}`, `gauge-temp-${productId}`, `label-temp-${productId}`, 'Suhu', data.suhu_rak_c, 50, '°C', 'var(--accent-color)');
-            createOrUpdateGauge(`gauge-humidity-${productId}`, `gauge-humidity-${productId}`, `label-humidity-${productId}`, 'Kelembapan', data.kelembaban_rak_persen, 100, '%', 'var(--secondary-color)');
+            createOrUpdateGauge(`gauge-temp-${productId}`, `gauge-temp-${productId}`, `label-temp-${productId}`, 'Suhu', data.suhu_rak_c, 50, '°C', '#254D70');
+            createOrUpdateGauge(`gauge-humidity-${productId}`, `gauge-humidity-${productId}`, `label-humidity-${productId}`, 'Kelembapan', data.kelembaban_rak_persen, 100, '%', '#FB9E3A');
             
             const trendChart = chartInstances[`trend-${productId}`];
             const summaryChart = chartInstances.summary;
