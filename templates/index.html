@@ -6,8 +6,8 @@
     <title>Monitoring Inventaris Produk Makanan</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <style>
-        /* ... CSS Anda dari sebelumnya, tidak ada perubahan di sini ... */
         :root { 
             --primary-color: #a200ff;
             --secondary-color: #2196F3; 
@@ -21,7 +21,7 @@
             --critical-temp-bg: #E3F2FD;
             --critical-temp-border: #2196F3;
             --navbar-bg: #fdf8ff;
-            --navbar-width: 280px;
+            --navbar-width: 400px;
             --notification-color: #f44336;
         }
 
@@ -59,7 +59,6 @@
             flex-grow: 1; padding: 20px 40px;
             display: flex; flex-direction: column;
             align-items: center;
-            flex-grow: 1
         }
 
         #right-navbar {
@@ -106,28 +105,69 @@
             width: 100%; 
             max-width: calc(100vw - var(--navbar-width) - 80px);
             margin-top: 20px; transition: opacity 0.3s ease, border-color 0.3s, background-color 0.3s;
-            flex-grow: 1; /* Membuat kartu meregang vertikal */
+            flex-grow: 1;
         }
         .card.hidden { display: none; opacity: 0; }
-        .card.low-stock { border-color: var(--low-stock-border); background-color: var(--low-stock-bg); }
-        .card.critical-temp { border-color: var(--critical-temp-border); background-color: var(--critical-temp-bg); }
+        
+        .card.critical-temp {
+            border-color: var(--critical-temp-border);
+            background-color: var(--critical-temp-bg);
+        }
+        .card.low-stock {
+            border-color: var(--low-stock-border);
+            background-color: var(--low-stock-bg);
+        }
+
         .card h2 { color: var(--primary-color); margin-top: 0; margin-bottom: 15px; font-size: 1.6em; font-weight: 600; }
         .card p { margin: 8px 0; font-size: 1.1em; }
         .card p strong { color: var(--secondary-color); font-weight: 400; }
+        
+        .gauge-container {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            width: 100%;
+            margin: 20px 0;
+            gap: 20px;
+        }
+        .gauge-wrapper {
+            position: relative;
+            width: 45%;
+            max-width: 250px;
+            text-align: center;
+        }
+        .gauge-wrapper canvas {
+            max-height: 250px;
+        }
+        .gauge-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.8em;
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+        .gauge-label small {
+            font-size: 0.5em;
+            font-weight: 400;
+            display: block;
+            line-height: 1;
+        }
         
         .card-notifications .notification { font-weight: 600; padding: 8px 12px; border-radius: 5px; margin-top: 15px; text-align: center; }
         .card-notifications .notification.low { color: #D32F2F; background-color: #FFCDD2; } 
         .card-notifications .notification.temp { color: #1976D2; background-color: #BBDEFB; }
         
-        .chart-container { flex-grow: 1; min-height: 400px; margin-top: 15px; }
-        .footer { background-color: var(--text-dark); color: var(--text-light); text-align: center; padding: 15px 0; font-size: 0.9em; }
+        .chart-container { flex-grow: 1; min-height: 350px; margin-top: 15px; }
+        .footer { background-color: var(--text-dark); color: var(--text-light); text-align: center; padding: 15px 0; font-size: 0.9em; margin-top: auto; }
         #initial-message { text-align: center; color: #777; width: 100%; margin-top: 50px; font-size: 1.2em; }
     </style>
 </head>
 <body>
     <div class="header">
         <div class="header-left">
-            <h1>Monitoring Dashboard Inventaris  Produk Makanan (Barang)</h1>
+            <h1>Monitoring Dashboard Inventaris Produk Makanan (Barang)</h1>
             <p class="status-header">Update terakhir: <span id="last-update">Menunggu data...</span></p>
         </div>
         <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
@@ -136,7 +176,7 @@
     <div class="dashboard-container">
         <div class="main-content">
             <div id="summary-card" class="card hidden">
-                <h2>Grafik Stok</h2>
+                <h2>Grafik Stok Keseluruhan</h2>
                 <div class="chart-container">
                     <canvas id="summary-chart"></canvas>
                 </div>
@@ -147,7 +187,7 @@
         <nav id="right-navbar">
             <h3>Daftar Produk</h3>
             <ul id="product-list">
-                <li><a href="#" id="summary-link">Grafik Keseluruhan</a></li>
+                <li><a href="#" id="summary-link" class="active">Grafik Keseluruhan</a></li>
                 <hr>
             </ul>
         </nav>
@@ -158,12 +198,47 @@
     </div>
 
     <script>
-        const historicalData = {};
         const chartInstances = {}; 
         let currentProductIds = new Set();
-        let activeViewId = null; 
-        const maxHistory = 30;
-        let summaryTimestamps = [];
+        let activeViewId = 'summary';
+        const MAX_HISTORY_POINTS = 30;
+        const lastProcessedTimestamp = {};
+
+        function createOrUpdateGauge(chartId, canvasId, labelId, titleText, value, maxValue, unit, color) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const label = document.getElementById(labelId);
+            const displayValue = value.toFixed(1);
+            
+            label.innerHTML = `${displayValue}<small>${unit}</small>`;
+
+            if (chartInstances[chartId]) {
+                chartInstances[chartId].data.datasets[0].data = [value, Math.max(0, maxValue - value)];
+                chartInstances[chartId].update('none');
+            } else {
+                chartInstances[chartId] = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        datasets: [{
+                            data: [value, Math.max(0, maxValue - value)],
+                            backgroundColor: [color, '#E9ECEF'],
+                            borderColor: 'transparent',
+                            circumference: 270, rotation: 225,
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: true, aspectRatio: 1.5,
+                        cutout: '80%',
+                        plugins: {
+                            legend: { display: false }, tooltip: { enabled: false },
+                            title: { 
+                                display: true, text: titleText, position: 'bottom', 
+                                padding: { top: 0, bottom: 10 }, font: { weight: 'bold' }
+                            }
+                        }
+                    }
+                });
+            }
+        }
 
         function getRandomColor() {
             const r = Math.floor(Math.random() * 200); const g = Math.floor(Math.random() * 200); const b = Math.floor(Math.random() * 200);
@@ -175,12 +250,8 @@
             document.getElementById('initial-message').style.display = 'none';
             document.querySelectorAll('.card').forEach(card => card.classList.add('hidden'));
             
-            if (viewId === 'summary') {
-                document.getElementById('summary-card').classList.remove('hidden');
-            } else {
-                const selectedCard = document.getElementById(`card-${viewId}`);
-                if (selectedCard) selectedCard.classList.remove('hidden');
-            }
+            const viewToShow = document.getElementById(viewId === 'summary' ? 'summary-card' : `card-${viewId}`);
+            if (viewToShow) viewToShow.classList.remove('hidden');
 
             document.querySelectorAll('#product-list li a').forEach(link => {
                 const linkId = link.id === 'summary-link' ? 'summary' : link.dataset.productId;
@@ -188,144 +259,212 @@
             });
         }
 
+        function createRealtimeLineChart(canvasId, titleText = null) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const isSummary = (canvasId === 'summary-chart');
+
+            const yAxes = isSummary 
+                ? { y: { beginAtZero: true, title: { display: true, text: 'Jumlah Stok' }}} 
+                : { 
+                    y: { type: 'linear', position: 'left', beginAtZero: true, title: { display: true, text: 'Stok' }}, 
+                    y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Suhu (°C)' }} 
+                  };
+
+            return new Chart(ctx, {
+                type: 'line', 
+                data: { datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'timeseries',
+                            time: {
+                                unit: 'second',
+                                displayFormats: {
+                                    second: 'HH:mm:ss'
+                                }
+                            },
+                            ticks: {
+                                source: 'auto',
+                                autoSkip: true,
+                                maxTicksLimit: 7
+                            }
+                        },
+                        ...yAxes
+                    },
+                    plugins: { 
+                        legend: { position: 'top' }, 
+                        title: { display: !!titleText, text: titleText } 
+                    }
+                }
+            });
+        }
+        
+        async function updateDashboard() {
+            try {
+                const response = await fetch('/data');
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const apiResponse = await response.json();
+
+                document.getElementById('last-update').textContent = apiResponse.waktu_sekarang;
+
+                const productsData = apiResponse.data_produk;
+                const historicalData = apiResponse.historical_data;
+                
+                updateNavbar(Object.keys(productsData));
+                updateAllVisuals(productsData, historicalData);
+
+                if (document.querySelectorAll('.card').length > 1 && document.getElementById('initial-message').style.display !== 'none') {
+                    setActiveView(activeViewId);
+                }
+
+            } catch (error) {
+                console.error("Gagal memperbarui data dashboard:", error);
+                document.getElementById('last-update').textContent = "Error!";
+            }
+        }
+        
         function updateNavbar(productIds) {
-            const productList = document.getElementById('product-list');
             productIds.forEach(productId => {
                 if (!currentProductIds.has(productId)) {
                     currentProductIds.add(productId);
+                    const productList = document.getElementById('product-list');
                     const listItem = document.createElement('li');
-                    const linkContent = `<span>${productId.replace(/_/g, " ")}</span><span class="notification-badge hidden">!</span>`;
                     const link = document.createElement('a');
-                    link.href = '#'; link.dataset.productId = productId; link.innerHTML = linkContent;
+                    link.href = '#'; 
+                    link.dataset.productId = productId;
+                    link.innerHTML = `<span>${productId.replace(/_/g, " ")}</span><span class="notification-badge hidden">!</span>`;
                     link.addEventListener('click', e => { e.preventDefault(); setActiveView(productId); });
                     listItem.appendChild(link);
                     productList.appendChild(listItem);
                 }
             });
         }
+        
+        function updateAllVisuals(productsData, historicalData) {
+            const summaryChart = chartInstances.summary;
 
-        function initializeSummaryChart() {
-            const ctx = document.getElementById('summary-chart');
-            chartInstances.summary = new Chart(ctx, {
-                type: 'line', data: { labels: [], datasets: [] },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true, title: { display: true, text: 'Jumlah Stok' }}},
-                    plugins: { legend: { position: 'top' }, title: { display: false } }
+            currentProductIds.forEach(productId => {
+                const data = productsData[productId];
+                const history = historicalData[productId];
+                
+                if (data && history) {
+                    updateProductCard(productId, data, history);
                 }
             });
-            document.getElementById('summary-link').addEventListener('click', e => { e.preventDefault(); setActiveView('summary'); });
-        }
 
-        async function updateDashboard() {
-            try {
-                const response = await fetch('/data'); 
-                const productsData = await response.json(); 
-
-                const container = document.getElementById('product-cards-container');
-                document.getElementById('last-update').textContent = productsData.waktu_sekarang;
-                const incomingProductIds = Object.keys(productsData.data_produk);
-                if (incomingProductIds.length === 0 && currentProductIds.size === 0) return;
-                
-                updateNavbar(incomingProductIds);
-                
-                summaryTimestamps.push(productsData.waktu_sekarang);
-                if (summaryTimestamps.length > maxHistory) {
-                    summaryTimestamps.shift();
-                }
-
-                currentProductIds.forEach(productId => {
-                    const data = productsData.data_produk[productId];
-                    
-                    if (!historicalData[productId]) {
-                        historicalData[productId] = { timestamps: [], stock: [], temperature: [] };
-                    }
-                    
-                    if (data) {
-                        historicalData[productId].timestamps.push(new Date(data.waktu_data).toLocaleTimeString());
-                        historicalData[productId].stock.push(data.jumlah_stok);
-                        historicalData[productId].temperature.push(data.suhu_rak_c);
-                    } else {
-                        const lastStock = historicalData[productId].stock.slice(-1)[0] || 0;
-                        const lastTemp = historicalData[productId].temperature.slice(-1)[0] || 0;
-                        const lastTime = historicalData[productId].timestamps.slice(-1)[0] || "--:--:--";
-                        historicalData[productId].stock.push(lastStock);
-                        historicalData[productId].temperature.push(lastTemp);
-                        historicalData[productId].timestamps.push(lastTime);
-                    }
-
-                    if (historicalData[productId].stock.length > maxHistory) {
-                        historicalData[productId].stock.shift();
-                        historicalData[productId].temperature.shift();
-                        historicalData[productId].timestamps.shift();
-                    }
-                });
-
-                currentProductIds.forEach(productId => {
-                    const data = productsData.data_produk[productId];
-                    
-                    if (data) {
-                        const needsNotification = data.perlu_restock || data.notifikasi_suhu_tidak_ideal;
-                        document.querySelector(`#product-list a[data-product-id="${productId}"] .notification-badge`)?.classList.toggle('hidden', !needsNotification);
-                    }
-                    
-                    let cardElement = document.getElementById(`card-${productId}`);
-                    if (!cardElement && data) {
-                        let notificationsHtml = '';
-                        if (data.perlu_restock) notificationsHtml += '<div class="notification low">STOK RENDAH!</div>';
-                        if (data.notifikasi_suhu_tidak_ideal) notificationsHtml += '<div class="notification temp">SUHU KRITIS!</div>';
-                        const cardHtml = `<div id="card-${productId}" class="card hidden"><h2>${data.id_produk.replace(/_/g, " ")}</h2><p><strong>Stok Saat Ini:</strong> ${data.jumlah_stok}</p><p><strong>Batas Min. Stok:</strong> ${data.batas_minimum_stok}</p><p><strong>Suhu Rak:</strong> ${data.suhu_rak_c} °C</p><p><strong>Kelembaban Rak:</strong> ${data.kelembaban_rak_persen} %</p><div class="card-notifications">${notificationsHtml}</div><div class="chart-container"><canvas id="chart-${productId}"></canvas></div></div>`;
-                        container.insertAdjacentHTML('beforeend', cardHtml);
-                        const ctx = document.getElementById(`chart-${productId}`);
-                        chartInstances[productId] = new Chart(ctx, { type: 'line', data: { labels: historicalData[productId].timestamps, datasets: [{ label: 'Stok', data: historicalData[productId].stock, borderColor: 'rgba(75, 192, 192, 1)', backgroundColor: 'rgba(75, 192, 192, 0.2)', fill: true, tension: 0.3 }, { label: 'Suhu (°C)', data: historicalData[productId].temperature, borderColor: 'rgba(255, 99, 132, 1)', backgroundColor: 'rgba(255, 99, 132, 0.2)', fill: true, tension: 0.3, yAxisID: 'y1' }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, title: { display: true, text: 'Stok' }}, y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Suhu (°C)' }} }, plugins: { title: { display: true, text: `Tren Stok & Suhu ${data.id_produk.replace(/_/g, " ")}` }}}});
-                    
-                    } else if (cardElement) {
-                        if (data) {
-                            cardElement.querySelector('p:nth-of-type(1)').innerHTML = `<strong>Stok Saat Ini:</strong> ${data.jumlah_stok}`;
-                            cardElement.querySelector('p:nth-of-type(3)').innerHTML = `<strong>Suhu Rak:</strong> ${data.suhu_rak_c} °C`;
-                            cardElement.querySelector('p:nth-of-type(4)').innerHTML = `<strong>Kelembaban Rak:</strong> ${data.kelembaban_rak_persen} %`;
-                            let notificationsHtml = '';
-                            if (data.perlu_restock) notificationsHtml += '<div class="notification low">STOK RENDAH!</div>';
-                            if (data.notifikasi_suhu_tidak_ideal) notificationsHtml += '<div class="notification temp">SUHU KRITIS!</div>';
-                            cardElement.querySelector('.card-notifications').innerHTML = notificationsHtml;
-                            cardElement.classList.toggle('low-stock', data.perlu_restock);
-                            cardElement.classList.toggle('critical-temp', data.notifikasi_suhu_tidak_ideal && !data.perlu_restock);
-                        }
-                        
-                        const chart = chartInstances[productId];
-                        if (chart) {
-                            chart.data.labels = historicalData[productId].timestamps;
-                            chart.data.datasets[0].data = historicalData[productId].stock;
-                            chart.data.datasets[1].data = historicalData[productId].temperature;
-                            chart.update('none');
-                        }
-                    }
-                });
-
-                const summaryChart = chartInstances.summary;
-                summaryChart.data.labels = summaryTimestamps;
-                currentProductIds.forEach(productId => {
-                    let summaryDataset = summaryChart.data.datasets.find(ds => ds.label === productId.replace(/_/g, " "));
-                    if (!summaryDataset) {
-                        const newColor = getRandomColor();
-                        summaryDataset = { label: productId.replace(/_/g, " "), data: historicalData[productId].stock, borderColor: newColor, tension: 0.1, fill: true, backgroundColor: newColor.replace('rgb', 'rgba').replace(')', ', 0.1)') };
-                        summaryChart.data.datasets.push(summaryDataset);
-                    } else {
-                        summaryDataset.data = historicalData[productId].stock;
-                    }
-                });
-                summaryChart.update('none');
-
-                if (activeViewId === null) setActiveView('summary');
-
-            } catch (error) {
-                console.error("Gagal mengambil data dashboard:", error);
+            if (summaryChart) {
+                summaryChart.update();
             }
         }
-        
-        initializeSummaryChart();
-        setInterval(updateDashboard, 5000); 
-        updateDashboard();
+
+        function updateProductCard(productId, data, history) {
+            let cardElement = document.getElementById(`card-${productId}`);
+            const productName = productId.replace(/_/g, " ");
+
+            if (!cardElement) {
+                const cardHtml = `
+                    <div id="card-${productId}" class="card hidden">
+                        <h2>${productName}</h2>
+                        <p><strong>Stok Saat Ini:</strong> <span class="stok-value">${data.jumlah_stok}</span></p>
+                        <p><strong>Batas Minimum Stok:</strong> ${data.batas_minimum_stok}</p>
+                        <div class="gauge-container">
+                            <div class="gauge-wrapper"><canvas id="gauge-temp-${productId}"></canvas><div id="label-temp-${productId}" class="gauge-label"></div></div>
+                            <div class="gauge-wrapper"><canvas id="gauge-humidity-${productId}"></canvas><div id="label-humidity-${productId}" class="gauge-label"></div></div>
+                        </div>
+                        <div class="card-notifications"></div>
+                        <div class="chart-container" style="margin-top: 30px;"><canvas id="chart-trend-${productId}"></canvas></div>
+                    </div>`;
+                document.getElementById('product-cards-container').insertAdjacentHTML('beforeend', cardHtml);
+                cardElement = document.getElementById(`card-${productId}`);
+                chartInstances[`trend-${productId}`] = createRealtimeLineChart(`chart-trend-${productId}`, `Tren Stok & Suhu ${productName}`);
+            }
+
+            cardElement.querySelector('.stok-value').textContent = data.jumlah_stok;
+            let notificationsHtml = '';
+            if (data.perlu_restock) notificationsHtml += '<div class="notification low">STOK RENDAH! SEGERA RESTOCK!</div>';
+            if (data.notifikasi_suhu_tidak_ideal) notificationsHtml += '<div class="notification temp">PERINGATAN SUHU TIDAK IDEAL!</div>';
+            cardElement.querySelector('.card-notifications').innerHTML = notificationsHtml;
+
+            const needsNotification = data.perlu_restock || data.notifikasi_suhu_tidak_ideal;
+            const badge = document.querySelector(`#product-list a[data-product-id="${productId}"] .notification-badge`);
+            if (badge) badge.classList.toggle('hidden', !needsNotification);
+            
+            cardElement.classList.toggle('critical-temp', data.notifikasi_suhu_tidak_ideal);
+            cardElement.classList.toggle('low-stock', data.perlu_restock);
+
+            createOrUpdateGauge(`gauge-temp-${productId}`, `gauge-temp-${productId}`, `label-temp-${productId}`, 'Suhu', data.suhu_rak_c, 50, '°C', 'var(--accent-color)');
+            createOrUpdateGauge(`gauge-humidity-${productId}`, `gauge-humidity-${productId}`, `label-humidity-${productId}`, 'Kelembapan', data.kelembaban_rak_persen, 100, '%', 'var(--secondary-color)');
+            
+            const trendChart = chartInstances[`trend-${productId}`];
+            const summaryChart = chartInstances.summary;
+
+            let trendStockDataset = trendChart.data.datasets.find(ds => ds.label === 'Stok');
+            if (!trendStockDataset) {
+                trendStockDataset = { label: 'Stok', data: [], borderColor: 'rgba(75, 192, 192, 1)', backgroundColor: 'rgba(75, 192, 192, 0.2)', fill: true, tension: 0.3, yAxisID: 'y' };
+                trendChart.data.datasets.push(trendStockDataset);
+            }
+            let trendTempDataset = trendChart.data.datasets.find(ds => ds.label === 'Suhu (°C)');
+            if (!trendTempDataset) {
+                trendTempDataset = { label: 'Suhu (°C)', data: [], borderColor: 'rgba(255, 99, 132, 1)', backgroundColor: 'rgba(255, 99, 132, 0.2)', fill: true, tension: 0.3, yAxisID: 'y1' };
+                trendChart.data.datasets.push(trendTempDataset);
+            }
+            let summaryStockDataset = summaryChart.data.datasets.find(ds => ds.label === productName);
+            
+            if (!summaryStockDataset) {
+                const solidColor = getRandomColor(); 
+                const transparentColor = solidColor.replace('rgb', 'rgba').replace(')', ', 0.1)');
+
+                summaryStockDataset = { 
+                    label: productName, 
+                    data: [], 
+                    borderColor: solidColor,
+                    backgroundColor: transparentColor,
+                    tension: 0.2, 
+                    fill: true
+                };
+                summaryChart.data.datasets.push(summaryStockDataset);
+            }
+
+            history.timestamps.forEach((ts, i) => {
+                const timestamp = new Date(ts);
+                if (timestamp > (lastProcessedTimestamp[productId] || 0)) {
+                    const stockValue = history.stock[i];
+                    const tempValue = history.temperature[i];
+                    if (summaryStockDataset.data.length === 0) {
+                        const startTimestamp = new Date(timestamp.getTime() - 2000); 
+                        summaryStockDataset.data.push({ x: startTimestamp, y: 0 });
+                    }
+                    trendStockDataset.data.push({ x: timestamp, y: stockValue });
+                    trendTempDataset.data.push({ x: timestamp, y: tempValue });
+                    summaryStockDataset.data.push({ x: timestamp, y: stockValue });
+
+                    if (trendStockDataset.data.length > MAX_HISTORY_POINTS) {
+                        trendStockDataset.data.shift();
+                        trendTempDataset.data.shift();
+                    }
+                    if(summaryStockDataset.data.length > MAX_HISTORY_POINTS + 1){ 
+                        summaryStockDataset.data.shift();
+                    }
+                }
+            });
+            
+            if (history.timestamps.length > 0) {
+                lastProcessedTimestamp[productId] = new Date(history.timestamps[history.timestamps.length - 1]);
+            }
+            
+            trendChart.update();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            chartInstances.summary = createRealtimeLineChart('summary-chart');
+            document.getElementById('summary-link').addEventListener('click', e => { e.preventDefault(); setActiveView('summary'); });
+
+            setActiveView('summary');
+            setInterval(updateDashboard, 5000); 
+            updateDashboard();
+        });
     </script>
 </body>
 </html>

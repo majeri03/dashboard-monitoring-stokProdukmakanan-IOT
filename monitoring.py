@@ -50,9 +50,10 @@ def saat_pesan_diterima(klien, data_pengguna, pesan):
             
             if id_produk not in historical_product_data:
                 historical_product_data[id_produk] = deque(maxlen=MAX_HISTORY_POINTS)
+            
             historical_product_data[id_produk].append(data)
 
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] [MQTT] Pesan diterima dari '{pesan.topic}' untuk produk '{id_produk}'. Variabel global diupdate.") # Konfirmasi update
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] [MQTT] Pesan diterima dari '{pesan.topic}' untuk produk '{id_produk}'. Variabel global diupdate.")
 
         except json.JSONDecodeError:
             print(f"[{datetime.now().strftime('%H:%M:%S')}] [MQTT] ERROR: Gagal mengurai pesan JSON. Payload: {pesan.payload.decode('utf-8')}")
@@ -80,17 +81,13 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] [DEBUG LOGIN] Percobaan login - Username: {username}, Password: {'*' * len(password)}")
         
         if username == monitor_USER and password == monitor_PASS:
             session['logged_in'] = True
             flash('Berhasil masuk!', 'success')
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] [DEBUG LOGIN] Login berhasil.")
             return redirect(url_for('index'))
         else:
             flash('Username atau password salah!', 'error')
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] [DEBUG LOGIN] Login gagal.")
             return redirect(url_for('login'))
     
     return render_template('login.html')
@@ -112,11 +109,13 @@ def get_monitor_data():
         }
 
         for product_id, history_deque in historical_product_data.items():
-            data_untuk_api["historical_data"][product_id] = {
-                "timestamps": [d["waktu_data"] for d in history_deque],
-                "stock": [d["jumlah_stok"] for d in history_deque],
-                "temperature": [d["suhu_rak_c"] for d in history_deque]
-            }
+            if history_deque: 
+                data_untuk_api["historical_data"][product_id] = {
+                    "timestamps": [d.get("waktu_data", "N/A") for d in history_deque],
+                    "stock": [d.get("jumlah_stok", 0) for d in history_deque],
+                    "temperature": [d.get("suhu_rak_c", 0) for d in history_deque],
+                    "humidity": [d.get("kelembaban_rak_persen", 0) for d in history_deque]
+                }
         
         return jsonify(data_untuk_api)
 
