@@ -294,6 +294,12 @@
                         </div>
                     </div>
                 </div>
+                <div class="card" style="margin-top: 24px;">
+                    <h3 class="card-title">Tren Total Stok Keseluruhan</h3>
+                    <div class="chart-container" style="min-height: 280px;">
+                        <canvas id="total-stock-trend-chart"></canvas>
+                    </div>
+                </div>
             </div>
 
             <!-- Tampilan Detail -->
@@ -333,6 +339,7 @@
     <script>
         const chartInstances = {};
         let activeProductId = 'summary';
+        let totalStockHistory = [];
 
         // PERBAIKAN: Menggunakan nilai hex langsung karena JS tidak bisa membaca variabel CSS
         const COLORS = {
@@ -491,6 +498,76 @@
             });
         }
 
+        function createTotalStockTrendChart(canvasId, historyData) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            if (chartInstances[canvasId]) {
+                // Hanya perbarui data jika grafik sudah ada
+                chartInstances[canvasId].data.labels = historyData.map(d => d.time);
+                chartInstances[canvasId].data.datasets[0].data = historyData.map(d => d.total);
+                chartInstances[canvasId].update('none'); // Update tanpa animasi
+                return;
+            }
+
+            // Membuat gradasi warna untuk area grafik
+            const trendGradient = ctx.createLinearGradient(0, 0, 0, 300);
+            trendGradient.addColorStop(0, 'rgba(20, 255, 186, 0.6)'); // Warna terang di atas
+            trendGradient.addColorStop(1, 'rgba(20, 255, 186, 0.01)'); // Transparan di bawah
+
+            chartInstances[canvasId] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: historyData.map(d => d.time), // Sumbu X dari data histori
+                    datasets: [{
+                        label: 'Total Stok',
+                        data: historyData.map(d => d.total), // Sumbu Y dari data histori
+                        borderColor: '#14FFBA', // Warna garis (hijau toska)
+                        backgroundColor: trendGradient, // Gradasi area
+                        fill: true,
+                        tension: 0.4, // Membuat garis sedikit melengkung
+                        pointRadius: 0, // Menghilangkan titik pada data
+                        pointHoverRadius: 6, // Titik muncul saat di-hover
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false // Sembunyikan legenda "Total Stok"
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'timeseries',
+                            time: {
+                                unit: 'second',
+                                displayFormats: {
+                                    second: 'HH:mm:ss'
+                                }
+                            },
+                            ticks: {
+                                color: COLORS.textSecondary
+                            },
+                            grid: {
+                                display: false, // Sembunyikan garis grid vertikal
+                                borderColor: 'transparent'
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                color: COLORS.textSecondary
+                            },
+                            grid: {
+                                color: COLORS.gridColor, // Garis grid horizontal
+                                drawBorder: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
         function updateClock() {
             const now = new Date();
             document.getElementById('time-display').textContent = now.toLocaleTimeString('id-ID', { hour12: false });
@@ -558,7 +635,18 @@
             if (activeProductId === 'summary') {
                 const totalStok = products.reduce((sum, p) => sum + p.jumlah_stok, 0);
                 document.getElementById('total-stok-value').textContent = totalStok;
-                document.getElementById('total-produk-count').textContent = `${productCount} Jenis Produk`;
+
+                totalStockHistory.push({
+                    time: new Date(),
+                    total: totalStok
+                });
+
+                // Batasi panjang array histori agar tidak terlalu berat
+                if (totalStockHistory.length > 100) {
+                    totalStockHistory.shift();
+                }
+
+                document.getElementById('total-produk-count').textContent = `${productCount}`;
 
                 const restockCount = products.filter(p => p.perlu_restock).length;
                 const suhuCount = products.filter(p => p.notifikasi_suhu_tidak_ideal).length;
@@ -580,6 +668,7 @@
 
                 createGaugeChart('avg-temp-gauge', 'Suhu', avgTemp, -10, 40, COLORS.accentYellow, '°C');
                 createGaugeChart('avg-stock-gauge', 'Stok', avgStock, 0, maxStockCapacity, COLORS.accentGreen, ' pcs');
+                createTotalStockTrendChart('total-stock-trend-chart', totalStockHistory);
 
             } else {
                 const productData = data.data_produk[activeProductId];
