@@ -4,541 +4,644 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitoring Inventaris Produk Makanan</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root { 
-            --primary-color: #5459AC;
-            --secondary-color: #8DD8FF; 
-            --accent-color: #FFC107; 
-            --background-light: #f4f7fc;
-            --card-bg: #ffffff;
-            --text-dark: #333;
-            --text-light: #FFF;
-            --low-stock-bg: #FFEBEE; 
-            --low-stock-border: #EF5350;
-            --critical-temp-bg: #E3F2FD;
-            --critical-temp-border: #27548A;
-            --navbar-bg: #fdf8ff;
-            --navbar-width: 400px;
-            --notification-color: #f44336;
+        :root {
+            --bg-dark: #1F213A;
+            --card-dark: #252849;
+            --sidebar-dark: #2A2D54;
+            --text-primary: #FFFFFF;
+            --text-secondary: #A0AEC0;
+            --accent-green: #22C55E;
+            --accent-red: #EF4444;
+            --accent-blue: #3B82F6;
+            --accent-yellow: #F59E0B; 
+            --border-color: #323558;
+            --gauge-bg: #373958;
+        }
+
+        /* Animasi untuk stok kritis (merah) */
+        @keyframes glow-red {
+            0% { box-shadow: 0 0 2px var(--accent-red); }
+            50% { box-shadow: 0 0 10px var(--accent-red), 0 0 5px var(--accent-red); }
+            100% { box-shadow: 0 0 2px var(--accent-red); }
+        }
+
+        /* Animasi untuk peringatan suhu (oranye) */
+        @keyframes glow-orange {
+            0% { box-shadow: 0 0 2px var(--accent-yellow); }
+            50% { box-shadow: 0 0 10px var(--accent-yellow), 0 0 5px var(--accent-yellow); }
+            100% { box-shadow: 0 0 2px var(--accent-yellow); }
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-blue) var(--card-dark);
         }
 
         body {
-            font-family: 'Poppins', sans-serif;
-            background-color: var(--background-light);
-            color: var(--text-dark);
-            margin: 0; padding: 0;
-            display: flex; flex-direction: column;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
+            background-size: 25px 25px;
+            color: var(--text-primary);
+            display: flex;
             min-height: 100vh;
         }
-        .header {
-            background-color: var(--primary-color);
-            color: var(--text-light);
-            padding: 15px 40px;
+
+        .dashboard-container {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            position: sticky; top: 0;
-            z-index: 1000;
-        }
-        .header-left { display: flex; flex-direction: column; align-items: flex-start; }
-        .header h1 { margin: 0; font-size: 2em; font-weight: 600; }
-        .status-header { margin: 4px 0 0 0; color: #e9e9e9; font-size: 0.9em; }
-        .header .logout-btn {
-            background-color: var(--secondary-color); color: var(--text-light);
-            text-decoration: none; padding: 10px 20px; border-radius: 5px;
-            transition: background-color 0.3s ease;
-        }
-        .header .logout-btn:hover { background-color: #1976D2; }
-
-        .dashboard-container { display: flex; flex-grow: 1; }
-        .main-content {
-            flex-grow: 1; padding: 20px 40px;
-            display: flex; flex-direction: column;
-            align-items: center;
+            width: 100%;
+            height: 100vh;
+            padding: 20px;
+            gap: 24px;
         }
 
-        #right-navbar {
-            width: var(--navbar-width); background-color: var(--navbar-bg);
-            border-left: 1px solid #e0e0e0; padding: 40px 20px;
-            overflow-y: auto; box-shadow: -2px 0 8px rgba(0,0,0,0.05);
-            margin: 30px;
-        }
-        #right-navbar h3 {
-            margin-top: 0; color: var(--primary-color);
-            border-bottom: 2px solid var(--primary-color);
-            padding-bottom: 10px;
-        }
-        #product-list { list-style: none; padding: 0; margin: 0; }
-        #product-list li a {
+        .product-sidebar {
+            width: 350px;
+            background-color: var(--card-dark);
+            border-radius: 16px;
+            padding: 24px;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 15px; text-decoration: none;
-            color: var(--text-dark); border-radius: 5px;
-            margin-bottom: 8px; font-weight: 400;
-            transition: background-color 0.2s, color 0.2s;
-            border: 1px solid transparent;
+            flex-direction: column;
+            flex-shrink: 0;
         }
-        #product-list li a:hover { background-color: #e8d4f8; }
-        #product-list li a.active {
-            background-color: var(--primary-color); color: var(--text-light);
-            font-weight: 600; border-color: var(--primary-color);
-        }
-        .notification-badge {
-            background-color: var(--notification-color);
-            color: white; width: 20px; height: 20px;
-            border-radius: 50%; display: inline-flex;
-            justify-content: center; align-items: center;
-            font-size: 12px; font-weight: bold;
-            margin-left: 10px; flex-shrink: 0;
-        }
-        .notification-badge.hidden { display: none; }
 
-        .card {
-            background-color: var(--card-bg); border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.08); padding: 25px;
-            display: flex; 
-            width: 100%; 
-            max-width: calc(100vw - var(--navbar-width) - 80px);
-            margin-top: 20px; transition: opacity 0.3s ease, border-color 0.3s, background-color 0.3s;
+        .sidebar-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 15px;
+        }
+
+        .product-list {
+            list-style: none;
+            overflow-y: auto;
             flex-grow: 1;
         }
-        .card.hidden { display: none; opacity: 0; }
-        
-        .card.critical-temp {
-            border-color: var(--critical-temp-border);
-            background-color: var(--critical-temp-bg);
+
+        .product-list-item {
+            padding: 15px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s, border-color 0.3s, transform 0.2s;
+            border: 1px solid transparent;
         }
-        .card.low-stock {
-            border-color: var(--low-stock-border);
-            background-color: var(--low-stock-bg);
+        .product-list-item:hover {
+            background-color: var(--sidebar-dark);
+            transform: translateY(-2px);
+        }
+        .product-list-item.active {
+            background-color: var(--accent-blue);
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        /* Gaya untuk notifikasi stok kritis */
+        .product-list-item.critical {
+            border-color: var(--accent-red);
+            animation: glow-red 2s infinite ease-in-out;
+        }
+        /* Gaya untuk notifikasi peringatan suhu */
+        .product-list-item.warning {
+            border-color: var(--accent-yellow);
+            animation: glow-orange 2s infinite ease-in-out;
+        }
+        .product-list-item .product-name { font-weight: 500; }
+        .product-list-item .product-stock { font-size: 12px; color: var(--text-secondary); }
+        .product-list-item.active .product-stock { color: var(--text-primary); }
+
+
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
         }
 
-        .card h2 { color: var(--primary-color); margin-top: 0; margin-bottom: 15px; font-size: 1.6em; font-weight: 600; }
-        .card p { margin: 8px 0; font-size: 1.1em; }
-        .card p strong { color: var(--secondary-color); font-weight: 400; }
-        
-        .gauge-container {
-            display: flex; justify-content: space-around; align-items: center;
-            width: 100%; margin: 20px 0; gap: 20px;
+        .header-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 24px;
+            margin-bottom: 24px;
         }
-        .gauge-wrapper {
-            position: relative; width: 45%; max-width: 250px; text-align: center;
-        }
-        .gauge-wrapper canvas { max-height: 250px; }
-        .gauge-label {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 1.8em; font-weight: 600; color: var(--text-dark);
-        }
-        .gauge-label small { font-size: 0.5em; font-weight: 400; display: block; line-height: 1; }
         
-        .card-notifications .notification { font-weight: 600; padding: 8px 12px; border-radius: 5px; margin-top: 15px; text-align: center; }
-        .card-notifications .notification.low { color: #D32F2F; background-color: #FFCDD2; } 
-        .card-notifications .notification.temp { color: #1976D2; background-color: #BBDEFB; }
+        .main-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+            flex-grow: 1;
+        }
+
+        .card {
+            background-color: var(--card-dark);
+            border-radius: 16px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
         
-        .chart-container { position: relative; width: 100%; }
-        .footer { background-color: var(--text-dark); color: var(--text-light); text-align: center; padding: 15px 0; font-size: 0.9em; margin-top: auto; }
-        #initial-message { text-align: center; color: #777; width: 100%; margin-top: 50px; font-size: 1.2em; }
+        .chart-container {
+            flex-grow: 1;
+            position: relative;
+            min-height: 250px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .kpi-value {
+            font-size: 48px;
+            font-weight: 700;
+        }
+        .kpi-label {
+            font-size: 16px;
+            color: var(--text-secondary);
+        }
+        .kpi-value.red { color: var(--accent-red); }
+        .kpi-value.yellow { color: var(--accent-yellow); }
+
+        .time-display { font-size: 36px; font-weight: 600; }
+        .date-display { color: var(--text-secondary); }
+
+        /* Detail View Specifics */
+        .detail-view { display: none; flex-direction: column; width: 100%; height: 100%; }
+        #back-to-summary {
+            background: var(--sidebar-dark);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            align-self: flex-start;
+            margin-bottom: 20px;
+        }
+        #back-to-summary:hover { background-color: var(--border-color); }
+        .detail-header { font-size: 28px; font-weight: 600; margin-bottom: 24px; }
+        
+        .detail-main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+            flex-grow: 1;
+        }
+        .detail-info-grid {
+            display: grid;
+            grid-template-rows: repeat(4, 1fr);
+            gap: 24px;
+        }
+        .info-card {
+            background-color: var(--sidebar-dark);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .info-card .kpi-value { font-size: 36px; }
+        .info-card .kpi-label { font-size: 14px; }
+        
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="header-left">
-            <h1>Monitoring Dashboard Inventaris Produk Makanan (Barang)</h1>
-            <p class="status-header">Update terakhir: <span id="last-update">Menunggu data...</span></p>
-        </div>
-        <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
-    </div>
 
     <div class="dashboard-container">
-        <div class="main-content">
-            <h1 class="text-6xl font-bold text-center text-gray-800 mb-6 mt-4 flex-shrink-0">Realtime data Produk</h1>
-            <div id="summary-card" class="card hidden flex-col justify-center items-center">
-                <div class="w-full max-w-7xl mx-auto">
-                    <div class="flex flex-col md:flex-row justify-center items-center gap-8 w-full">
-                        <div class="flex flex-col items-center w-full md:w-1/2">
-                            <h3 class="text-lg font-semibold text-gray-600 mb-4">Komposisi Stok</h3>
-                            <div class="chart-container w-full h-[400px]">
-                                <canvas id="composition-chart"></canvas>
+        <aside class="product-sidebar">
+            <h2 class="sidebar-title">Daftar Produk</h2>
+            <ul class="product-list" id="product-list">
+                <li class="product-list-item active" data-product-id="summary">
+                    <div class="product-name">Ringkasan Dashboard</div>
+                    <div class="product-stock">Lihat semua data</div>
+                </li>
+                <!-- Item produk akan dimasukkan oleh JS -->
+            </ul>
+        </aside>
+
+        <main class="main-content">
+            <!-- Tampilan Ringkasan -->
+            <div id="summary-view">
+                <div class="header-grid">
+                    <div class="card">
+                        <h3 class="card-title">Total Stok</h3>
+                        <p class="kpi-value" id="total-stok-value">0</p>
+                        <p class="kpi-label"><span id="total-produk-count">0</span> Jenis Produk</p>
+                    </div>
+                    <div class="card">
+                        <h3 class="card-title">Notifikasi</h3>
+                        <div style="display: flex; gap: 20px; align-items: center;">
+                            <div>
+                                <p class="kpi-value red" id="notif-restock-count">0</p>
+                                <p class="kpi-label">Perlu Restock</p>
+                            </div>
+                            <div>
+                                <p class="kpi-value yellow" id="notif-suhu-count">0</p>
+                                <p class="kpi-label">Peringatan Suhu</p>
                             </div>
                         </div>
-                        <div class="flex flex-col items-center w-full md:w-1/2">
-                            <h3 class="text-lg font-semibold text-gray-600 mb-4">Stok Aktual vs. Batas Minimum</h3>
-                            <div class="chart-container w-full h-[400px]">
-                                <canvas id="comparison-chart"></canvas>
-                            </div>
+                    </div>
+                    <div class="card">
+                        <h3 class="card-title">Waktu Lokal</h3>
+                        <p class="time-display" id="time-display">00:00:00</p>
+                        <p class="date-display" id="date-display">Tanggal</p>
+                    </div>
+                </div>
+                <div class="main-grid">
+                    <div class="card">
+                        <h3 class="card-title">Komposisi Stok</h3>
+                        <div class="chart-container">
+                            <canvas id="composition-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 class="card-title">Stok Aktual vs. Batas Minimum</h3>
+                        <div class="chart-container">
+                            <canvas id="comparison-chart"></canvas>
+                        </div>
+                    </div>
+                    <!-- BARU: Grafik Gauge -->
+                    <div class="card">
+                        <h3 class="card-title">Rata-rata Suhu Rak</h3>
+                        <div class="chart-container">
+                            <canvas id="avg-temp-gauge"></canvas>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 class="card-title">Tingkat Rata-rata Stok</h3>
+                        <div class="chart-container">
+                            <canvas id="avg-stock-gauge"></canvas>
                         </div>
                     </div>
                 </div>
             </div>
-            <div id="product-cards-container" style="width: 100%;"></div>
-            <p id="initial-message">Pilih produk dari daftar di samping untuk melihat detail.</p>
-        </div>
-        <nav id="right-navbar">
-            <h3>Daftar Produk</h3>
-            <ul id="product-list">
-                <li><a href="#" id="summary-link" class="active">Grafik Keseluruhan</a></li>
-                <hr>
-            </ul>
-        </nav>
-    </div>
 
-    <div class="footer">
-        &copy; 2025 MAJERI 105841103622 6A.
+            <!-- Tampilan Detail -->
+            <div id="detail-view" class="detail-view">
+                <button id="back-to-summary">← Kembali ke Ringkasan</button>
+                <h2 class="detail-header" id="detail-title">Detail Produk</h2>
+                <div class="detail-main-grid">
+                    <div class="card">
+                        <h3 class="card-title">Tren Stok & Suhu</h3>
+                        <div class="chart-container">
+                            <canvas id="detail-trend-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="detail-info-grid">
+                        <div class="info-card">
+                            <p class="kpi-label">Stok Saat Ini</p>
+                            <p class="kpi-value" id="detail-stok-aktual">0</p>
+                        </div>
+                        <div class="info-card">
+                            <p class="kpi-label">Batas Minimum Stok</p>
+                            <p class="kpi-value red" id="detail-stok-batas">0</p>
+                        </div>
+                        <div class="info-card">
+                            <p class="kpi-label">Suhu Rak</p>
+                            <p class="kpi-value yellow" id="detail-suhu">0 °C</p>
+                        </div>
+                         <div class="info-card">
+                            <p class="kpi-label">Kelembapan</p>
+                            <p class="kpi-value" id="detail-kelembapan" style="color: var(--accent-green)">0 %</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
 
     <script>
-        const chartInstances = {}; 
-        let currentProductIds = new Set();
-        let activeViewId = 'summary';
-        const MAX_HISTORY_POINTS = 30;
-        const lastProcessedTimestamp = {};
+        const chartInstances = {};
+        let activeProductId = 'summary';
 
-        function generateColors(numColors) {
-            const colors = [];
-            const baseColors = ['#5459AC', '#3498db', '#8DD8FF', '#f1c40f', '#2ecc71', '#e74c3c', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
-            for (let i = 0; i < numColors; i++) {
-                colors.push(baseColors[i % baseColors.length]);
-            }
-            return colors;
-        }
-
-        const tooltipTitleCallback = (tooltipItems) => {
-            const item = tooltipItems[0];
-            let label = item.chart.data.labels[item.dataIndex];
-            if (Array.isArray(label)) {
-                return label.join(' ');
-            } else {
-                return label;
-            }
+        // PERBAIKAN: Menggunakan nilai hex langsung karena JS tidak bisa membaca variabel CSS
+        const COLORS = {
+            textPrimary: '#FFFFFF',
+            textSecondary: '#A0AEC0',
+            accentGreen: '#22C55E',
+            accentRed: '#EF4444',
+            accentBlue: '#3B82F6',
+            accentYellow: '#F59E0B',
+            gridColor: 'rgba(50, 53, 88, 0.5)',
+            gaugeBackground: '#373958'
         };
 
-        function wrapLabel(label, maxWidth = 16) {
-            if (label.length <= maxWidth) {
-                return label;
-            }
-            const words = label.split(' ');
-            const lines = [];
-            let currentLine = '';
-            for (const word of words) {
-                if ((currentLine + ' ' + word).trim().length > maxWidth) {
-                    lines.push(currentLine.trim());
-                    currentLine = word;
-                } else {
-                    currentLine = (currentLine + ' ' + word).trim();
-                }
-            }
-            if (currentLine) {
-                lines.push(currentLine.trim());
-            }
-            return lines;
-        }
+        // Plugin untuk menulis teks di tengah grafik gauge
+        const gaugeTextPlugin = {
+            id: 'gaugeText',
+            beforeDraw: (chart) => {
+                if (chart.config.type !== 'doughnut' || !chart.config.options.plugins.gauge) return;
+                
+                const { ctx, chartArea: { top, right, bottom, left, width, height } } = chart;
+                const { value, unit, color, label } = chart.config.options.plugins.gauge;
 
-        function createDoughnutChart(canvasId) {
+                ctx.save();
+                
+                // Teks Nilai
+                ctx.font = `bold ${height / 3.5}px Inter`;
+                ctx.fillStyle = color;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${value}${unit}`, width / 2, height / 2 + top + 5);
+
+                // Teks Label
+                ctx.font = `500 ${height / 9}px Inter`;
+                ctx.fillStyle = COLORS.textSecondary;
+                ctx.fillText(label, width / 2, height / 2 + top + (height/4));
+                
+                ctx.restore();
+            }
+        };
+        Chart.register(gaugeTextPlugin);
+
+        // Fungsi untuk membuat grafik gauge
+        function createGaugeChart(canvasId, label, value, min, max, color, unit) {
             const ctx = document.getElementById(canvasId).getContext('2d');
-            return new Chart(ctx, {
+            if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+            
+            const displayValue = unit === '°C' ? value.toFixed(1) : value.toFixed(0);
+            const dataValue = Math.max(0, value - min);
+            const dataRemainder = Math.max(0, max - value);
+
+            chartInstances[canvasId] = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: [],
                     datasets: [{
-                        data: [],
-                        backgroundColor: [],
-                        borderColor: '#ffffff',
-                        borderWidth: 2,
+                        data: [dataValue, dataRemainder],
+                        backgroundColor: [color, COLORS.gaugeBackground],
+                        borderWidth: 0,
+                        circumference: 270, // Membuatnya menjadi 3/4 lingkaran
+                        rotation: -135,
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    cutout: '80%',
                     plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                padding: 20,
-                                boxWidth: 15,
-                            }
-                        },
-                        tooltip: { callbacks: { title: tooltipTitleCallback } }
+                        tooltip: { enabled: false },
+                        legend: { display: false },
+                        gauge: { // Opsi plugin kustom
+                            value: displayValue,
+                            unit: unit,
+                            color: color,
+                            label: label
+                        }
                     }
                 }
             });
         }
-        
-        function createBarChart(canvasId) {
+
+        function createDoughnutChart(canvasId, labels, data, colors) {
             const ctx = document.getElementById(canvasId).getContext('2d');
-            return new Chart(ctx, {
+            if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+            chartInstances[canvasId] = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{ data: data, backgroundColor: colors, borderWidth: 0 }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { color: COLORS.textSecondary } } }
+                }
+            });
+        }
+
+        function createBarChart(canvasId, labels, actualData, minData) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+            chartInstances[canvasId] = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: [],
+                    labels: labels,
                     datasets: [
-                        { label: 'Stok Aktual', data: [], backgroundColor: 'rgba(84, 89, 172, 0.7)' },
-                        { label: 'Batas Minimum', data: [], backgroundColor: 'rgba(239, 83, 80, 0.7)' }
+                        { label: 'Stok Aktual', data: actualData, backgroundColor: COLORS.accentBlue, borderRadius: 4 },
+                        { label: 'Batas Minimum', data: minData, backgroundColor: COLORS.accentRed, borderRadius: 4 }
                     ]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true } },
-                    plugins: { 
-                        legend: { position: 'top' },
-                        tooltip: { callbacks: { title: tooltipTitleCallback } }
-                    }
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        x: { ticks: { color: COLORS.textSecondary }, grid: { color: COLORS.gridColor } },
+                        y: { beginAtZero: true, ticks: { color: COLORS.textSecondary }, grid: { color: COLORS.gridColor } }
+                    },
+                    plugins: { legend: { position: 'top', labels: { color: COLORS.textSecondary } } }
                 }
             });
         }
         
-        function createOrUpdateGauge(chartId, canvasId, labelId, titleText, value, maxValue, unit, color) {
+        function createAreaChart(canvasId) {
             const ctx = document.getElementById(canvasId).getContext('2d');
-            const label = document.getElementById(labelId);
-            const displayValue = value.toFixed(1);
+            if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
             
-            label.innerHTML = `${displayValue}<small>${unit}</small>`;
+            const stockGradient = ctx.createLinearGradient(0, 0, 0, 300);
+            stockGradient.addColorStop(0, 'rgba(59, 130, 246, 0.6)');
+            stockGradient.addColorStop(1, 'rgba(59, 130, 246, 0.1)');
 
-            if (chartInstances[chartId]) {
-                chartInstances[chartId].data.datasets[0].data = [value, Math.max(0, maxValue - value)];
-                chartInstances[chartId].update('none');
-            } else {
-                chartInstances[chartId] = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        datasets: [{
-                            data: [value, Math.max(0, maxValue - value)],
-                            backgroundColor: [color, '#E9ECEF'],
-                            borderColor: 'transparent',
-                            circumference: 270, rotation: 225,
-                        }]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: true, aspectRatio: 1.5,
-                        cutout: '80%',
-                        plugins: {
-                            legend: { display: false }, tooltip: { enabled: false },
-                            title: { 
-                                display: true, text: titleText, position: 'bottom', 
-                                padding: { top: 0, bottom: 10 }, font: { weight: 'bold' }
-                            }
+            const suhuGradient = ctx.createLinearGradient(0, 0, 0, 300);
+            suhuGradient.addColorStop(0, 'rgba(245, 158, 11, 0.6)');
+            suhuGradient.addColorStop(1, 'rgba(245, 158, 11, 0.1)');
+
+            chartInstances[canvasId] = new Chart(ctx, {
+                type: 'line',
+                data: { 
+                    datasets: [
+                        {
+                            label: 'Stok', yAxisID: 'yStok', borderColor: COLORS.accentBlue,
+                            backgroundColor: stockGradient, fill: true, tension: 0.4,
+                            pointRadius: 1, borderWidth: 2,
+                        },
+                        {
+                            label: 'Suhu', yAxisID: 'ySuhu', borderColor: COLORS.accentYellow,
+                            backgroundColor: suhuGradient, fill: true, tension: 0.4,
+                            pointRadius: 1, borderWidth: 2,
                         }
-                    }
-                });
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        x: { type: 'timeseries', time: { unit: 'second', displayFormats: { second: 'HH:mm:ss' } }, ticks: { color: COLORS.textSecondary }, grid: { color: COLORS.gridColor } },
+                        yStok: { type: 'linear', position: 'left', beginAtZero: false, ticks: { color: COLORS.accentBlue }, grid: { drawOnChartArea: false }, title: { display: true, text: 'Stok', color: COLORS.accentBlue } },
+                        ySuhu: { type: 'linear', position: 'right', ticks: { color: COLORS.accentYellow }, grid: { drawOnChartArea: false }, title: { display: true, text: 'Suhu (°C)', color: COLORS.accentYellow } }
+                    },
+                    plugins: { legend: { position: 'top', align: 'end', labels: { color: COLORS.textSecondary, usePointStyle: true, boxWidth: 8 } } }
+                }
+            });
+        }
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('time-display').textContent = now.toLocaleTimeString('id-ID', { hour12: false });
+            document.getElementById('date-display').textContent = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        function switchView(viewId) {
+            if (viewId === 'summary') {
+                document.getElementById('summary-view').style.display = 'block';
+                document.getElementById('detail-view').style.display = 'none';
+                activeProductId = 'summary';
+            } else {
+                document.getElementById('summary-view').style.display = 'none';
+                document.getElementById('detail-view').style.display = 'flex';
+                activeProductId = viewId;
+            }
+            updateActiveSidebarItem();
+        }
+
+        function updateActiveSidebarItem() {
+            document.querySelectorAll('.product-list-item').forEach(item => {
+                item.classList.toggle('active', item.dataset.productId === activeProductId);
+            });
+        }
+
+        function updateSidebar(productsData) {
+            const productList = document.getElementById('product-list');
+            const newProductIds = new Set();
+
+            Object.values(productsData).forEach(p => {
+                const productId = p.id_produk;
+                newProductIds.add(productId);
+                let item = productList.querySelector(`li[data-product-id="${productId}"]`);
+                if (!item) {
+                    item = document.createElement('li');
+                    item.className = 'product-list-item';
+                    item.dataset.productId = productId;
+                    item.innerHTML = `<div class="product-name">${productId.replace(/_/g, " ")}</div><div class="product-stock">Stok: ${p.jumlah_stok}</div>`;
+                    productList.appendChild(item);
+                } else {
+                    item.querySelector('.product-stock').textContent = `Stok: ${p.jumlah_stok}`;
+                }
+                // Toggle kelas notifikasi
+                item.classList.toggle('critical', p.perlu_restock);
+                item.classList.toggle('warning', p.notifikasi_suhu_tidak_ideal);
+            });
+
+            // Hapus item lama yang tidak ada di data baru
+            productList.querySelectorAll('li[data-product-id]').forEach(item => {
+                const currentId = item.dataset.productId;
+                if (currentId !== 'summary' && !newProductIds.has(currentId)) {
+                    item.remove();
+                }
+            });
+        }
+
+        function updateDashboard(data) {
+            const products = Object.values(data.data_produk);
+            const productCount = products.length;
+            
+            updateSidebar(data.data_produk);
+
+            if (productCount === 0) return;
+
+            if (activeProductId === 'summary') {
+                const totalStok = products.reduce((sum, p) => sum + p.jumlah_stok, 0);
+                document.getElementById('total-stok-value').textContent = totalStok;
+                document.getElementById('total-produk-count').textContent = `${productCount} Jenis Produk`;
+
+                const restockCount = products.filter(p => p.perlu_restock).length;
+                const suhuCount = products.filter(p => p.notifikasi_suhu_tidak_ideal).length;
+                document.getElementById('notif-restock-count').textContent = restockCount;
+                document.getElementById('notif-suhu-count').textContent = suhuCount;
+
+                const productLabels = products.map(p => p.id_produk.replace(/_/g, " "));
+                const stockValues = products.map(p => p.jumlah_stok);
+                const minStockValues = products.map(p => p.batas_minimum_stok);
+                const chartColors = ['#3B82F6', '#22C55E', '#F59E0B', '#EF4444', '#9b59b6', '#e67e22', '#1abc9c'];
+                
+                createDoughnutChart('composition-chart', productLabels, stockValues, chartColors);
+                createBarChart('comparison-chart', productLabels, stockValues, minStockValues);
+                
+                // Perbarui grafik gauge
+                const avgTemp = products.reduce((sum, p) => sum + p.suhu_rak_c, 0) / productCount;
+                const avgStock = products.reduce((sum, p) => sum + p.jumlah_stok, 0) / productCount;
+                const maxStockCapacity = Math.max(100, ...products.map(p => p.batas_minimum_stok * 3));
+
+                createGaugeChart('avg-temp-gauge', 'Suhu', avgTemp, -10, 40, COLORS.accentYellow, '°C');
+                createGaugeChart('avg-stock-gauge', 'Stok', avgStock, 0, maxStockCapacity, COLORS.accentGreen, ' pcs');
+
+            } else {
+                const productData = data.data_produk[activeProductId];
+                const historyData = data.historical_data[activeProductId];
+                if (!productData) {
+                    switchView('summary'); // Jika produk tidak ditemukan, kembali ke ringkasan
+                    return;
+                }
+                
+                document.getElementById('detail-title').textContent = productData.id_produk.replace(/_/g, " ");
+                document.getElementById('detail-stok-aktual').textContent = productData.jumlah_stok;
+                document.getElementById('detail-stok-batas').textContent = productData.batas_minimum_stok;
+                document.getElementById('detail-suhu').textContent = `${productData.suhu_rak_c.toFixed(1)} °C`;
+                document.getElementById('detail-kelembapan').textContent = `${productData.kelembaban_rak_persen.toFixed(1)} %`;
+
+                const chart = chartInstances['detail-trend-chart'];
+                if (historyData && chart) {
+                    chart.data.datasets[0].data = historyData.timestamps.map((ts, i) => ({ x: new Date(ts), y: historyData.stock[i] }));
+                    chart.data.datasets[1].data = historyData.timestamps.map((ts, i) => ({ x: new Date(ts), y: historyData.temperature[i] }));
+                    chart.update('none');
+                }
             }
         }
-        
-        function setActiveView(viewId) {
-            activeViewId = viewId;
-            document.getElementById('initial-message').style.display = 'none';
-            document.querySelectorAll('.card').forEach(card => card.classList.add('hidden'));
-            
-            const viewToShow = document.getElementById(viewId === 'summary' ? 'summary-card' : `card-${viewId}`);
-            if (viewToShow) viewToShow.classList.remove('hidden');
 
-            document.querySelectorAll('#product-list li a').forEach(link => {
-                const linkId = link.id === 'summary-link' ? 'summary' : link.dataset.productId;
-                link.classList.toggle('active', linkId === viewId);
-            });
-        }
-
-        function createRealtimeLineChart(canvasId, titleText = null) {
-            const ctx = document.getElementById(canvasId).getContext('2d');
-            const yAxes = { 
-                y: { type: 'linear', position: 'left', beginAtZero: true, title: { display: true, text: 'Stok' }}, 
-                y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Suhu (°C)' }} 
-            };
-
-            return new Chart(ctx, {
-                type: 'line', 
-                data: { datasets: [] },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            type: 'timeseries',
-                            time: { unit: 'second', displayFormats: { second: 'HH:mm:ss' } },
-                            ticks: { source: 'auto', autoSkip: true, maxTicksLimit: 7 }
-                        },
-                        ...yAxes
-                    },
-                    plugins: { 
-                        legend: { position: 'top' }, 
-                        title: { display: !!titleText, text: titleText },
-                        tooltip: { callbacks: { title: tooltipTitleCallback } }
-                    }
-                }
-            });
-        }
-        
-        async function updateDashboard() {
+        // Fungsi untuk mengambil data dari endpoint
+        async function fetchData() {
             try {
                 const response = await fetch('/data');
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                if (!response.ok) {
+                    // Jika fetch gagal, jangan hentikan interval, coba lagi nanti
+                    console.error(`HTTP error! status: ${response.status}`);
+                    return; 
+                }
                 const apiResponse = await response.json();
-
-                document.getElementById('last-update').textContent = apiResponse.waktu_sekarang;
-
-                const productsData = apiResponse.data_produk;
-                const historicalData = apiResponse.historical_data;
-                
-                updateNavbar(Object.keys(productsData));
-                updateAllVisuals(productsData, historicalData);
-
-                if (document.querySelectorAll('.card').length > 1 && document.getElementById('initial-message').style.display !== 'none') {
-                    setActiveView(activeViewId);
-                }
-
+                updateDashboard(apiResponse);
             } catch (error) {
-                console.error("Gagal memperbarui data dashboard:", error);
-                document.getElementById('last-update').textContent = "Error!";
+                console.error("Gagal mengambil atau mem-parsing data dashboard:", error);
             }
-        }
-        
-        function updateNavbar(productIds) {
-            productIds.forEach(productId => {
-                if (!currentProductIds.has(productId)) {
-                    currentProductIds.add(productId);
-                    const productList = document.getElementById('product-list');
-                    const listItem = document.createElement('li');
-                    const link = document.createElement('a');
-                    link.href = '#'; 
-                    link.dataset.productId = productId;
-                    link.innerHTML = `<span>${productId.replace(/_/g, " ")}</span><span class="notification-badge hidden">!</span>`;
-                    link.addEventListener('click', e => { e.preventDefault(); setActiveView(productId); });
-                    listItem.appendChild(link);
-                    productList.appendChild(listItem);
-                }
-            });
-        }
-        
-        function updateSummaryCharts(productsData) {
-            const productIds = Object.keys(productsData);
-            if (productIds.length === 0) return;
-
-            const productNames = productIds.map(id => productsData[id].id_produk.replace(/_/g, " "));
-            const wrappedLabels = productNames.map(name => wrapLabel(name));
-            
-            // Update Doughnut Chart
-            const compositionChart = chartInstances.composition;
-            if (compositionChart) {
-                const stockValues = productIds.map(id => productsData[id].jumlah_stok);
-                compositionChart.data.labels = wrappedLabels;
-                compositionChart.data.datasets[0].data = stockValues;
-                compositionChart.data.datasets[0].backgroundColor = generateColors(stockValues.length);
-                compositionChart.update('none');
-            }
-
-            // Update Bar Chart
-            const comparisonChart = chartInstances.comparison;
-            if (comparisonChart) {
-                const actualStock = productIds.map(id => productsData[id].jumlah_stok);
-                const minStock = productIds.map(id => productsData[id].batas_minimum_stok);
-                comparisonChart.data.labels = wrappedLabels;
-                comparisonChart.data.datasets[0].data = actualStock;
-                comparisonChart.data.datasets[1].data = minStock;
-                comparisonChart.update('none');
-            }
-        }
-
-        function updateAllVisuals(productsData, historicalData) {
-            updateSummaryCharts(productsData);
-
-            currentProductIds.forEach(productId => {
-                const data = productsData[productId];
-                const history = historicalData[productId];
-                
-                if (data && history) {
-                    updateProductCard(productId, data, history);
-                }
-            });
-        }
-
-        function updateProductCard(productId, data, history) {
-            let cardElement = document.getElementById(`card-${productId}`);
-            const productName = productId.replace(/_/g, " ");
-
-            if (!cardElement) {
-                const cardHtml = `
-                    <div id="card-${productId}" class="card hidden flex-col">
-                        <h2>${productName}</h2>
-                        <p><strong>Stok Saat Ini:</strong> <span class="stok-value">${data.jumlah_stok}</span></p>
-                        <p><strong>Batas Minimum Stok:</strong> ${data.batas_minimum_stok}</p>
-                        <div class="gauge-container">
-                            <div class="gauge-wrapper"><canvas id="gauge-temp-${productId}"></canvas><div id="label-temp-${productId}" class="gauge-label"></div></div>
-                            <div class="gauge-wrapper"><canvas id="gauge-humidity-${productId}"></canvas><div id="label-humidity-${productId}" class="gauge-label"></div></div>
-                        </div>
-                        <div class="card-notifications"></div>
-                        <div class="chart-container" style="margin-top: 30px;"><canvas id="chart-trend-${productId}"></canvas></div>
-                    </div>`;
-                document.getElementById('product-cards-container').insertAdjacentHTML('beforeend', cardHtml);
-                cardElement = document.getElementById(`card-${productId}`);
-                chartInstances[`trend-${productId}`] = createRealtimeLineChart(`chart-trend-${productId}`, `Tren Stok & Suhu ${productName}`);
-            }
-
-            cardElement.querySelector('.stok-value').textContent = data.jumlah_stok;
-            let notificationsHtml = '';
-            if (data.perlu_restock) notificationsHtml += '<div class="notification low">STOK RENDAH! SEGERA RESTOCK!</div>';
-            if (data.notifikasi_suhu_tidak_ideal) notificationsHtml += '<div class="notification temp">PERINGATAN SUHU TIDAK IDEAL!</div>';
-            cardElement.querySelector('.card-notifications').innerHTML = notificationsHtml;
-
-            const needsNotification = data.perlu_restock || data.notifikasi_suhu_tidak_ideal;
-            const badge = document.querySelector(`#product-list a[data-product-id="${productId}"] .notification-badge`);
-            if (badge) badge.classList.toggle('hidden', !needsNotification);
-            
-            cardElement.classList.toggle('critical-temp', data.notifikasi_suhu_tidak_ideal);
-            cardElement.classList.toggle('low-stock', data.perlu_restock);
-
-            createOrUpdateGauge(`gauge-temp-${productId}`, `gauge-temp-${productId}`, `label-temp-${productId}`, 'Suhu', data.suhu_rak_c, 50, '°C', '#254D70');
-            createOrUpdateGauge(`gauge-humidity-${productId}`, `gauge-humidity-${productId}`, `label-humidity-${productId}`, 'Kelembapan', data.kelembaban_rak_persen, 100, '%', '#FB9E3A');
-            
-            const trendChart = chartInstances[`trend-${productId}`];
-            let trendStockDataset = trendChart.data.datasets.find(ds => ds.label === 'Stok');
-            if (!trendStockDataset) {
-                trendStockDataset = { label: 'Stok', data: [], borderColor: 'rgba(75, 192, 192, 1)', backgroundColor: 'rgba(75, 192, 192, 0.2)', fill: true, tension: 0.3, yAxisID: 'y' };
-                trendChart.data.datasets.push(trendStockDataset);
-            }
-            let trendTempDataset = trendChart.data.datasets.find(ds => ds.label === 'Suhu (°C)');
-            if (!trendTempDataset) {
-                trendTempDataset = { label: 'Suhu (°C)', data: [], borderColor: 'rgba(255, 99, 132, 1)', backgroundColor: 'rgba(255, 99, 132, 0.2)', fill: true, tension: 0.3, yAxisID: 'y1' };
-                trendChart.data.datasets.push(trendTempDataset);
-            }
-
-            history.timestamps.forEach((ts, i) => {
-                const timestamp = new Date(ts);
-                if (timestamp > (lastProcessedTimestamp[productId] || 0)) {
-                    const stockValue = history.stock[i];
-                    const tempValue = history.temperature[i];
-
-                    trendStockDataset.data.push({ x: timestamp, y: stockValue });
-                    trendTempDataset.data.push({ x: timestamp, y: tempValue });
-
-                    if (trendStockDataset.data.length > MAX_HISTORY_POINTS) {
-                        trendStockDataset.data.shift();
-                        trendTempDataset.data.shift();
-                    }
-                }
-            });
-            
-            if (history.timestamps.length > 0) {
-                lastProcessedTimestamp[productId] = new Date(history.timestamps[history.timestamps.length - 1]);
-            }
-            
-            trendChart.update('none');
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Inisialisasi grafik baru untuk ringkasan
-            chartInstances.composition = createDoughnutChart('composition-chart');
-            chartInstances.comparison = createBarChart('comparison-chart');
-            
-            document.getElementById('summary-link').addEventListener('click', e => { e.preventDefault(); setActiveView('summary'); });
+            updateClock();
+            setInterval(updateClock, 1000);
 
-            setActiveView('summary');
-            setInterval(updateDashboard, 3000); // Update lebih cepat untuk demo
-            updateDashboard();
+            document.querySelector('[data-product-id="summary"]').onclick = () => switchView('summary');
+            document.getElementById('back-to-summary').onclick = () => switchView('summary');
+            
+            document.getElementById('product-list').addEventListener('click', (event) => {
+                const productItem = event.target.closest('.product-list-item');
+                if (productItem && productItem.dataset.productId) {
+                    switchView(productItem.dataset.productId);
+                }
+            });
+            // Inisialisasi grafik detail sekali saja
+            createAreaChart('detail-trend-chart');
+            
+            // Inisialisasi tampilan awal
+            switchView('summary');
+
+            // Mulai mengambil data secara berkala
+            setInterval(fetchData, 2000);
+            fetchData(); // Panggil sekali saat awal
         });
     </script>
 </body>
