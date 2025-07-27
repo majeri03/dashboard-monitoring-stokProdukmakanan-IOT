@@ -74,10 +74,19 @@ def buat_data_retail(id_produk_terpilih, batas_minimum_produk):
         stok_produk = 200
     
     notifikasi_suhu_tidak_ideal = False
-    if "ES_KRIM" in id_produk_terpilih and suhu_rak_c > -2:
+    id_upper = id_produk_terpilih.upper()
+
+    if "ESKRIM" in id_upper and suhu_rak_c > -2:
         notifikasi_suhu_tidak_ideal = True
-    elif ("DAGING" in id_produk_terpilih or "SUSU" in id_produk_terpilih) and suhu_rak_c > 3:
+    elif ("DAGING" in id_upper or "SUSU" in id_upper) and suhu_rak_c > 3:
         notifikasi_suhu_tidak_ideal = True
+    elif "YOGHURT" in id_upper and suhu_rak_c > 4:
+        notifikasi_suhu_tidak_ideal = True
+    elif "IKAN" in id_upper and suhu_rak_c > 2:
+        notifikasi_suhu_tidak_ideal = True
+    elif "KEJU" in id_upper and suhu_rak_c > 5:
+        notifikasi_suhu_tidak_ideal = True
+
     
     data_yang_dikirim = {
         "id_produk": id_produk_terpilih,

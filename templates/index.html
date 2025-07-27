@@ -24,14 +24,12 @@
             --gauge-bg: #373958;
         }
 
-        /* Animasi untuk stok kritis (merah) */
         @keyframes glow-red {
             0% { box-shadow: 0 0 2px var(--accent-red); }
             50% { box-shadow: 0 0 10px var(--accent-red), 0 0 5px var(--accent-red); }
             100% { box-shadow: 0 0 2px var(--accent-red); }
         }
 
-        /* Animasi untuk peringatan suhu (oranye) */
         @keyframes glow-orange {
             0% { box-shadow: 0 0 2px var(--accent-yellow); }
             50% { box-shadow: 0 0 10px var(--accent-yellow), 0 0 5px var(--accent-yellow); }
@@ -105,12 +103,10 @@
             color: var(--text-primary);
             font-weight: 600;
         }
-        /* Gaya untuk notifikasi stok kritis */
         .product-list-item.critical {
             border-color: var(--accent-red);
             animation: glow-red 2s infinite ease-in-out;
         }
-        /* Gaya untuk notifikasi peringatan suhu */
         .product-list-item.warning {
             border-color: var(--accent-yellow);
             animation: glow-orange 2s infinite ease-in-out;
@@ -185,7 +181,6 @@
         .time-display { font-size: 36px; font-weight: 600; }
         .date-display { color: var(--text-secondary); }
 
-        /* Detail View Specifics */
         .detail-view { display: none; flex-direction: column; width: 100%; height: 100%; }
         #back-to-summary {
             background: var(--sidebar-dark);
@@ -235,12 +230,10 @@
                     <div class="product-name">Ringkasan Dashboard</div>
                     <div class="product-stock">Lihat semua data</div>
                 </li>
-                <!-- Item produk akan dimasukkan oleh JS -->
             </ul>
         </aside>
 
         <main class="main-content">
-            <!-- Tampilan Ringkasan -->
             <div id="summary-view">
                 <div class="header-grid">
                     <div class="card">
@@ -280,7 +273,6 @@
                             <canvas id="comparison-chart"></canvas>
                         </div>
                     </div>
-                    <!-- BARU: Grafik Gauge -->
                     <div class="card">
                         <h3 class="card-title">Rata-rata Suhu Rak</h3>
                         <div class="chart-container">
@@ -302,7 +294,6 @@
                 </div>
             </div>
 
-            <!-- Tampilan Detail -->
             <div id="detail-view" class="detail-view">
                 <button id="back-to-summary">← Kembali ke Ringkasan</button>
                 <h2 class="detail-header" id="detail-title">Detail Produk</h2>
@@ -341,7 +332,6 @@
         let activeProductId = 'summary';
         let totalStockHistory = [];
 
-        // PERBAIKAN: Menggunakan nilai hex langsung karena JS tidak bisa membaca variabel CSS
         const COLORS = {
             textPrimary: '#FFFFFF',
             textSecondary: '#A0AEC0',
@@ -353,7 +343,6 @@
             gaugeBackground: '#373958'
         };
 
-        // Plugin untuk menulis teks di tengah grafik gauge
         const gaugeTextPlugin = {
             id: 'gaugeText',
             beforeDraw: (chart) => {
@@ -364,14 +353,12 @@
 
                 ctx.save();
                 
-                // Teks Nilai
                 ctx.font = `bold ${height / 3.5}px Inter`;
                 ctx.fillStyle = color;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(`${value}${unit}`, width / 2, height / 2 + top + 5);
 
-                // Teks Label
                 ctx.font = `500 ${height / 9}px Inter`;
                 ctx.fillStyle = COLORS.textSecondary;
                 ctx.fillText(label, width / 2, height / 2 + top + (height/4));
@@ -381,7 +368,6 @@
         };
         Chart.register(gaugeTextPlugin);
 
-        // Fungsi untuk membuat grafik gauge
         function createGaugeChart(canvasId, label, value, min, max, color, unit) {
             const ctx = document.getElementById(canvasId).getContext('2d');
             if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
@@ -397,7 +383,7 @@
                         data: [dataValue, dataRemainder],
                         backgroundColor: [color, COLORS.gaugeBackground],
                         borderWidth: 0,
-                        circumference: 270, // Membuatnya menjadi 3/4 lingkaran
+                        circumference: 270, 
                         rotation: -135,
                     }]
                 },
@@ -408,7 +394,7 @@
                     plugins: {
                         tooltip: { enabled: false },
                         legend: { display: false },
-                        gauge: { // Opsi plugin kustom
+                        gauge: { 
                             value: displayValue,
                             unit: unit,
                             color: color,
@@ -501,31 +487,29 @@
         function createTotalStockTrendChart(canvasId, historyData) {
             const ctx = document.getElementById(canvasId).getContext('2d');
             if (chartInstances[canvasId]) {
-                // Hanya perbarui data jika grafik sudah ada
                 chartInstances[canvasId].data.labels = historyData.map(d => d.time);
                 chartInstances[canvasId].data.datasets[0].data = historyData.map(d => d.total);
-                chartInstances[canvasId].update('none'); // Update tanpa animasi
+                chartInstances[canvasId].update('none'); 
                 return;
             }
 
-            // Membuat gradasi warna untuk area grafik
             const trendGradient = ctx.createLinearGradient(0, 0, 0, 300);
-            trendGradient.addColorStop(0, 'rgba(20, 255, 186, 0.6)'); // Warna terang di atas
-            trendGradient.addColorStop(1, 'rgba(20, 255, 186, 0.01)'); // Transparan di bawah
+            trendGradient.addColorStop(0, 'rgba(20, 255, 186, 0.6)'); 
+            trendGradient.addColorStop(1, 'rgba(20, 255, 186, 0.01)'); 
 
             chartInstances[canvasId] = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: historyData.map(d => d.time), // Sumbu X dari data histori
+                    labels: historyData.map(d => d.time), 
                     datasets: [{
                         label: 'Total Stok',
-                        data: historyData.map(d => d.total), // Sumbu Y dari data histori
-                        borderColor: '#14FFBA', // Warna garis (hijau toska)
-                        backgroundColor: trendGradient, // Gradasi area
+                        data: historyData.map(d => d.total),
+                        borderColor: '#14FFBA', 
+                        backgroundColor: trendGradient, 
                         fill: true,
-                        tension: 0.4, // Membuat garis sedikit melengkung
-                        pointRadius: 0, // Menghilangkan titik pada data
-                        pointHoverRadius: 6, // Titik muncul saat di-hover
+                        tension: 0.4, 
+                        pointRadius: 0, 
+                        pointHoverRadius: 6, 
                         borderWidth: 2
                     }]
                 },
@@ -534,7 +518,7 @@
                     maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            display: false // Sembunyikan legenda "Total Stok"
+                            display: false 
                         }
                     },
                     scales: {
@@ -550,7 +534,7 @@
                                 color: COLORS.textSecondary
                             },
                             grid: {
-                                display: false, // Sembunyikan garis grid vertikal
+                                display: false, 
                                 borderColor: 'transparent'
                             }
                         },
@@ -559,7 +543,7 @@
                                 color: COLORS.textSecondary
                             },
                             grid: {
-                                color: COLORS.gridColor, // Garis grid horizontal
+                                color: COLORS.gridColor, 
                                 drawBorder: false
                             }
                         }
@@ -610,12 +594,10 @@
                 } else {
                     item.querySelector('.product-stock').textContent = `Stok: ${p.jumlah_stok}`;
                 }
-                // Toggle kelas notifikasi
                 item.classList.toggle('critical', p.perlu_restock);
                 item.classList.toggle('warning', p.notifikasi_suhu_tidak_ideal);
             });
 
-            // Hapus item lama yang tidak ada di data baru
             productList.querySelectorAll('li[data-product-id]').forEach(item => {
                 const currentId = item.dataset.productId;
                 if (currentId !== 'summary' && !newProductIds.has(currentId)) {
@@ -641,7 +623,6 @@
                     total: totalStok
                 });
 
-                // Batasi panjang array histori agar tidak terlalu berat
                 if (totalStockHistory.length > 100) {
                     totalStockHistory.shift();
                 }
@@ -661,7 +642,6 @@
                 createDoughnutChart('composition-chart', productLabels, stockValues, chartColors);
                 createBarChart('comparison-chart', productLabels, stockValues, minStockValues);
                 
-                // Perbarui grafik gauge
                 const avgTemp = products.reduce((sum, p) => sum + p.suhu_rak_c, 0) / productCount;
                 const avgStock = products.reduce((sum, p) => sum + p.jumlah_stok, 0) / productCount;
                 const maxStockCapacity = Math.max(100, ...products.map(p => p.batas_minimum_stok * 3));
@@ -674,7 +654,7 @@
                 const productData = data.data_produk[activeProductId];
                 const historyData = data.historical_data[activeProductId];
                 if (!productData) {
-                    switchView('summary'); // Jika produk tidak ditemukan, kembali ke ringkasan
+                    switchView('summary'); 
                     return;
                 }
                 
@@ -693,12 +673,10 @@
             }
         }
 
-        // Fungsi untuk mengambil data dari endpoint
         async function fetchData() {
             try {
                 const response = await fetch('/data');
                 if (!response.ok) {
-                    // Jika fetch gagal, jangan hentikan interval, coba lagi nanti
                     console.error(`HTTP error! status: ${response.status}`);
                     return; 
                 }
@@ -722,15 +700,12 @@
                     switchView(productItem.dataset.productId);
                 }
             });
-            // Inisialisasi grafik detail sekali saja
             createAreaChart('detail-trend-chart');
             
-            // Inisialisasi tampilan awal
             switchView('summary');
 
-            // Mulai mengambil data secara berkala
             setInterval(fetchData, 2000);
-            fetchData(); // Panggil sekali saat awal
+            fetchData(); 
         });
     </script>
 </body>
